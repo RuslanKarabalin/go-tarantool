@@ -164,7 +164,8 @@ func TestIntervalUnmarshalMsgpack_UnknownAdjust(t *testing.T) {
 
 			var ival Interval
 			err := ival.UnmarshalMsgpack(data)
-			require.EqualError(t, err, fmt.Sprintf("unknown interval adjust %d", adjust))
+			require.EqualError(t, err,
+				fmt.Sprintf("unknown interval adjust %d in msgpack", adjust))
 		})
 	}
 }
@@ -179,7 +180,7 @@ func TestIntervalUnmarshalMsgpack_ErrorKeepsReceiver(t *testing.T) {
 	orig := Interval{Year: 1, Month: 2, Adjust: LastAdjust}
 	ival := orig
 	err := ival.UnmarshalMsgpack(data)
-	require.EqualError(t, err, "unknown interval adjust 7")
+	require.EqualError(t, err, "unknown interval adjust 7 in msgpack")
 	assert.Equal(t, orig, ival, "receiver changed on error")
 }
 

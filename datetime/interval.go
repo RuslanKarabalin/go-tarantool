@@ -100,9 +100,9 @@ func (ival Interval) MarshalMsgpack() ([]byte, error) {
 func (ival Interval) MarshalMsgpackTo(e *msgpack.Encoder) error {
 	// Check the adjust before encoding anything to avoid a partially
 	// encoded interval.
-	adjust, ok := adjustToDt[ival.Adjust]
-	if !ok {
-		return fmt.Errorf("unknown interval adjust %d", ival.Adjust)
+	adjust, err := ival.Adjust.toDt()
+	if err != nil {
+		return err
 	}
 
 	var fieldNum = uint64(ival.countNonZeroFields(adjust))
@@ -184,11 +184,9 @@ func (ival *Interval) UnmarshalMsgpackFrom(d *msgpack.Decoder) error {
 		case fieldNSec:
 			res.Nsec = fieldVal
 		case fieldAdjust:
-			adjust, ok := dtToAdjust[fieldVal]
-			if !ok {
-				return fmt.Errorf("unknown interval adjust %d", fieldVal)
+			if res.Adjust, err = adjustFromDt(fieldVal); err != nil {
+				return err
 			}
-			res.Adjust = adjust
 		}
 	}
 

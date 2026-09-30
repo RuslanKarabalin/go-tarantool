@@ -268,8 +268,8 @@ func (d *Datetime) UnmarshalMsgpack(data []byte) error {
 }
 
 func (d Datetime) add(ival Interval, positive bool) (Datetime, error) {
-	if _, ok := adjustToDt[ival.Adjust]; !ok {
-		return Datetime{}, fmt.Errorf("unknown interval adjust %d", ival.Adjust)
+	if _, err := ival.Adjust.toDt(); err != nil {
+		return Datetime{}, err
 	}
 
 	newVal := intervalFromDatetime(d)
