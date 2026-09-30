@@ -142,13 +142,18 @@ func (ival Interval) MarshalMsgpackTo(e *msgpack.Encoder) error {
 }
 
 // UnmarshalMsgpackFrom implements a custom msgpack unmarshaler.
+//
+// The receiver is left unchanged if an error occurs.
 func (ival *Interval) UnmarshalMsgpackFrom(d *msgpack.Decoder) error {
 	fieldNum, err := d.DecodeUint()
 	if err != nil {
 		return err
 	}
 
-	ival.Adjust = dtToAdjust[int64(NoneAdjust)]
+	// Decode into a local value to avoid a partially decoded receiver on
+	// error.
+	var res Interval
+	res.Adjust = dtToAdjust[int64(NoneAdjust)]
 
 	for i := 0; i < int(fieldNum); i++ {
 		var fieldType uint
@@ -163,29 +168,31 @@ func (ival *Interval) UnmarshalMsgpackFrom(d *msgpack.Decoder) error {
 
 		switch fieldType {
 		case fieldYear:
-			ival.Year = fieldVal
+			res.Year = fieldVal
 		case fieldMonth:
-			ival.Month = fieldVal
+			res.Month = fieldVal
 		case fieldWeek:
-			ival.Week = fieldVal
+			res.Week = fieldVal
 		case fieldDay:
-			ival.Day = fieldVal
+			res.Day = fieldVal
 		case fieldHour:
-			ival.Hour = fieldVal
+			res.Hour = fieldVal
 		case fieldMin:
-			ival.Min = fieldVal
+			res.Min = fieldVal
 		case fieldSec:
-			ival.Sec = fieldVal
+			res.Sec = fieldVal
 		case fieldNSec:
-			ival.Nsec = fieldVal
+			res.Nsec = fieldVal
 		case fieldAdjust:
 			adjust, ok := dtToAdjust[fieldVal]
 			if !ok {
 				return fmt.Errorf("unknown interval adjust %d", fieldVal)
 			}
-			ival.Adjust = adjust
+			res.Adjust = adjust
 		}
 	}
+
+	*ival = res
 
 	return nil
 }

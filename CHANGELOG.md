@@ -17,6 +17,11 @@ Versioning](http://semver.org/spec/v2.0.0.html) except to the first release.
 * `datetime.Interval` silently encoded an unknown `Adjust` value as
   `excess` and decoded an unknown adjust from Tarantool as `NoneAdjust`.
   Both now return an error naming the unknown value (#609).
+* `datetime.Datetime.Add()` and `datetime.Datetime.Sub()` silently treated
+  an unknown `Interval.Adjust` value as `NoneAdjust`. They now return an
+  error (#609).
+* `datetime.Interval.UnmarshalMsgpack()` left the receiver partially
+  decoded on error. The receiver is now left unchanged (#609).
 
 ## [v3.0.2] - 2026-09-10
 

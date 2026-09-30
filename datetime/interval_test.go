@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,15 +125,74 @@ func TestIntervalMarshalMsgpack_UnknownAdjust(t *testing.T) {
 	require.ErrorContains(t, err, "unknown interval adjust 7")
 }
 
-func TestIntervalUnmarshalMsgpack_UnknownAdjust(t *testing.T) {
+func TestIntervalMarshalMsgpackTo_UnknownAdjustWritesNothing(t *testing.T) {
 	var buf bytes.Buffer
 	enc := msgpack.NewEncoder(&buf)
-	require.NoError(t, enc.EncodeUint(1)) // number of fields
-	require.NoError(t, enc.EncodeUint(8)) // adjust field
-	require.NoError(t, enc.EncodeUint(7)) // unknown adjust value
+	ival := Interval{Year: 1, Day: 1, Adjust: Adjust(7)}
 
-	var ival Interval
-	err := ival.UnmarshalMsgpack(buf.Bytes())
+	err := ival.MarshalMsgpackTo(enc)
+	require.EqualError(t, err, "unknown interval adjust 7")
+	assert.Zero(t, buf.Len(), "partially encoded interval")
+}
+
+// Interval field keys in the MessagePack representation.
+const (
+	intervalFieldYear   = 0
+	intervalFieldDay    = 3
+	intervalFieldAdjust = 8
+)
+
+func encodeIntervalFields(t *testing.T, fields ...int64) []byte {
+	t.Helper()
+
+	require.Zero(t, len(fields)%2, "fields must be key-value pairs")
+
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	require.NoError(t, enc.EncodeUint(uint64(len(fields)/2)))
+	for _, field := range fields {
+		require.NoError(t, enc.EncodeInt(field))
+	}
+
+	return buf.Bytes()
+}
+
+func TestIntervalUnmarshalMsgpack_UnknownAdjust(t *testing.T) {
+	for _, adjust := range []int64{3, 7, -1} {
+		t.Run(fmt.Sprintf("%d", adjust), func(t *testing.T) {
+			data := encodeIntervalFields(t, intervalFieldAdjust, adjust)
+
+			var ival Interval
+			err := ival.UnmarshalMsgpack(data)
+			require.EqualError(t, err, fmt.Sprintf("unknown interval adjust %d", adjust))
+		})
+	}
+}
+
+func TestIntervalUnmarshalMsgpack_ErrorKeepsReceiver(t *testing.T) {
+	data := encodeIntervalFields(t,
+		intervalFieldYear, 5,
+		intervalFieldDay, 6,
+		intervalFieldAdjust, 7,
+	)
+
+	orig := Interval{Year: 1, Month: 2, Adjust: LastAdjust}
+	ival := orig
+	err := ival.UnmarshalMsgpack(data)
+	require.EqualError(t, err, "unknown interval adjust 7")
+	assert.Equal(t, orig, ival, "receiver changed on error")
+}
+
+func TestDatetimeAddSub_UnknownAdjust(t *testing.T) {
+	dt, err := NewDatetime(time.Date(2024, 1, 31, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	ival := Interval{Month: 1, Adjust: Adjust(7)}
+
+	_, err = dt.Add(ival)
+	require.EqualError(t, err, "unknown interval adjust 7")
+
+	_, err = dt.Sub(ival)
 	require.EqualError(t, err, "unknown interval adjust 7")
 }
 
