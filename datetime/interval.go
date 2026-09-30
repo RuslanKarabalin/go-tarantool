@@ -38,12 +38,12 @@ type Interval struct {
 	Adjust Adjust
 }
 
-func (ival Interval) countNonZeroFields() int {
+func (ival Interval) countNonZeroFields(adjust int64) int {
 	count := 0
 
 	for _, field := range []int64{
 		ival.Year, ival.Month, ival.Week, ival.Day, ival.Hour,
-		ival.Min, ival.Sec, ival.Nsec, adjustToDt[ival.Adjust],
+		ival.Min, ival.Sec, ival.Nsec, adjust,
 	} {
 		if field != 0 {
 			count++
@@ -98,7 +98,14 @@ func (ival Interval) MarshalMsgpack() ([]byte, error) {
 
 // MarshalMsgpackTo implements a custom msgpack marshaler.
 func (ival Interval) MarshalMsgpackTo(e *msgpack.Encoder) error {
-	var fieldNum = uint64(ival.countNonZeroFields())
+	// Check the adjust before encoding anything to avoid a partially
+	// encoded interval.
+	adjust, ok := adjustToDt[ival.Adjust]
+	if !ok {
+		return fmt.Errorf("unknown interval adjust %d", ival.Adjust)
+	}
+
+	var fieldNum = uint64(ival.countNonZeroFields(adjust))
 	if err := e.EncodeUint(fieldNum); err != nil {
 		return err
 	}
@@ -127,7 +134,7 @@ func (ival Interval) MarshalMsgpackTo(e *msgpack.Encoder) error {
 	if err := encodeIntervalValue(e, fieldNSec, ival.Nsec); err != nil {
 		return err
 	}
-	if err := encodeIntervalValue(e, fieldAdjust, adjustToDt[ival.Adjust]); err != nil {
+	if err := encodeIntervalValue(e, fieldAdjust, adjust); err != nil {
 		return err
 	}
 
@@ -172,7 +179,11 @@ func (ival *Interval) UnmarshalMsgpackFrom(d *msgpack.Decoder) error {
 		case fieldNSec:
 			ival.Nsec = fieldVal
 		case fieldAdjust:
-			ival.Adjust = dtToAdjust[fieldVal]
+			adjust, ok := dtToAdjust[fieldVal]
+			if !ok {
+				return fmt.Errorf("unknown interval adjust %d", fieldVal)
+			}
+			ival.Adjust = adjust
 		}
 	}
 

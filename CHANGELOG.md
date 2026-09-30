@@ -14,6 +14,10 @@ Versioning](http://semver.org/spec/v2.0.0.html) except to the first release.
 
 ### Fixed
 
+* `datetime.Interval` silently encoded an unknown `Adjust` value as
+  `excess` and decoded an unknown adjust from Tarantool as `NoneAdjust`.
+  Both now return an error naming the unknown value (#609).
+
 ## [v3.0.2] - 2026-09-10
 
 This patch release fixes lost or stuck requests, occasional panics, and a

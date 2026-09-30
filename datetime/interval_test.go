@@ -1,6 +1,7 @@
 package datetime_test
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/tarantool/go-tarantool/v3"
 	. "github.com/tarantool/go-tarantool/v3/datetime"
 	"github.com/tarantool/go-tarantool/v3/test_helpers"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ fmt.Stringer = Interval{}
@@ -95,6 +97,43 @@ func TestIntervalSub(t *testing.T) {
 
 	require.Equal(t, expected, ival, "Unexpected interval result")
 	require.Equal(t, cpyOrig, orig, "Original value changed")
+}
+
+func TestIntervalMsgpackAdjust(t *testing.T) {
+	for _, adjust := range []Adjust{NoneAdjust, ExcessAdjust, LastAdjust} {
+		t.Run(fmt.Sprintf("%d", adjust), func(t *testing.T) {
+			orig := Interval{Day: 1, Adjust: adjust}
+
+			data, err := msgpack.Marshal(orig)
+			require.NoError(t, err)
+
+			var ret Interval
+			require.NoError(t, msgpack.Unmarshal(data, &ret))
+			assert.Equal(t, orig, ret)
+		})
+	}
+}
+
+func TestIntervalMarshalMsgpack_UnknownAdjust(t *testing.T) {
+	ival := Interval{Day: 1, Adjust: Adjust(7)}
+
+	_, err := ival.MarshalMsgpack()
+	require.EqualError(t, err, "unknown interval adjust 7")
+
+	_, err = msgpack.Marshal(ival)
+	require.ErrorContains(t, err, "unknown interval adjust 7")
+}
+
+func TestIntervalUnmarshalMsgpack_UnknownAdjust(t *testing.T) {
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	require.NoError(t, enc.EncodeUint(1)) // number of fields
+	require.NoError(t, enc.EncodeUint(8)) // adjust field
+	require.NoError(t, enc.EncodeUint(7)) // unknown adjust value
+
+	var ival Interval
+	err := ival.UnmarshalMsgpack(buf.Bytes())
+	require.EqualError(t, err, "unknown interval adjust 7")
 }
 
 func TestIntervalTarantoolEncoding(t *testing.T) {
